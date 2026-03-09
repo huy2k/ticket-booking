@@ -1,0 +1,680 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>TicketZone - Tool Cắm Tọa Độ Ghế PRO</title>
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+        background: #121212;
+        color: #fff;
+        margin: 0;
+        padding: 20px;
+        display: flex;
+        gap: 20px;
+      }
+      .sidebar {
+        width: 380px;
+        background: #1e1e1e;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #bc13fe;
+        height: calc(100vh - 40px);
+        overflow-y: auto;
+      }
+      .canvas-container {
+        flex: 1;
+        border: 2px dashed #444;
+        border-radius: 8px;
+        position: relative;
+        overflow: auto;
+        background: #000;
+        display: flex;
+        align-items: flex-start;
+        justify-content: flex-start;
+        min-height: calc(100vh - 40px);
+      }
+      .map-area {
+        position: relative;
+        transform-origin: top left;
+        background-size: cover;
+        background-position: center;
+      }
+      canvas {
+        display: block;
+        cursor: crosshair;
+      }
+      input,
+      select,
+      button,
+      textarea {
+        width: 100%;
+        margin-bottom: 12px;
+        padding: 10px;
+        background: #2a2a2a;
+        border: 1px solid #444;
+        color: #fff;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+      button {
+        background: #bc13fe;
+        font-weight: bold;
+        cursor: pointer;
+        border: none;
+      }
+      button:hover {
+        background: #d045ff;
+      }
+      .flex-row {
+        display: flex;
+        gap: 10px;
+      }
+      .flex-col {
+        flex: 1;
+      }
+      label {
+        font-size: 12px;
+        color: #ccc;
+        margin-bottom: 4px;
+        display: block;
+      }
+      hr {
+        border-color: #444;
+        margin: 15px 0;
+      }
+      .mode-group {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+      .mode-btn {
+        flex: 1;
+        background: #333;
+        color: #888;
+        border: 1px solid #555;
+        margin: 0;
+      }
+      .mode-btn.active {
+        background: #bc13fe;
+        color: #fff;
+        border-color: #d045ff;
+      }
+      .tooltip {
+        position: absolute;
+        background: rgba(0, 0, 0, 0.8);
+        color: #fff;
+        padding: 6px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+        pointer-events: none;
+        display: none;
+        z-index: 10;
+        white-space: nowrap;
+        line-height: 1.4;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sidebar">
+      <h2>🛠 Tool Cắm Tọa Độ Ghế PRO</h2>
+
+      <label>1. Ảnh Sơ Đồ (Background)</label>
+      <input
+        type="text"
+        id="bgUrl"
+        placeholder="Link ảnh URL: https://..."
+        value="https://images.unsplash.com/photo-1540747913346-19e32fc3e6a6?auto=format&fit=crop&w=800&q=20"
+      />
+      <div style="display: flex; gap: 10px">
+        <button onclick="changeBackground()" style="flex: 1">
+          🌐 Dùng Link URL
+        </button>
+        <button
+          onclick="document.getElementById('fileInput').click()"
+          style="flex: 1; background: #3498db"
+        >
+          📁 Chọn Ảnh Từ Máy
+        </button>
+        <input
+          type="file"
+          id="fileInput"
+          accept="image/*"
+          style="display: none"
+          onchange="handleFileUpload(event)"
+        />
+      </div>
+      <hr />
+
+      <label>2. Chế độ vẽ</label>
+      <div class="mode-group">
+        <button
+          id="modeSingle"
+          class="mode-btn active"
+          onclick="setMode('single')"
+        >
+          👆 Chấm từng ghế
+        </button>
+        <button id="modeGrid" class="mode-btn" onclick="setMode('grid')">
+          🔲 Kéo mảng (Grid)
+        </button>
+      </div>
+      <p
+        style="
+          font-size: 11px;
+          color: #aaa;
+          margin-top: -5px;
+          margin-bottom: 12px;
+        "
+        id="modeHint"
+      >
+        Click chuột TRÁI để tạo ghế. Click chuột PHẢI để Xóa ghế.
+      </p>
+
+      <label>3. Thuộc tính Ghế</label>
+      <div class="flex-row">
+        <div class="flex-col">
+          <label>Khu vực (Zone)</label>
+          <input type="text" id="zone" value="Tầng 1" />
+        </div>
+        <div class="flex-col">
+          <label>Hạng vé / Category</label>
+          <select id="category">
+            <option value="VVIP">VVIP</option>
+            <option value="VIP">VIP</option>
+            <option value="STANDARD">STANDARD</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex-row">
+        <div class="flex-col">
+          <label>Hình dáng</label>
+          <select id="shape">
+            <option value="circle">🟢 Hình tròn</option>
+            <option value="square">🟩 Hình vuông</option>
+            <option value="rect">▭ Ghế đôi</option>
+            <option value="triangle">🔺 Hình tam giác</option>
+          </select>
+        </div>
+        <div class="flex-col">
+          <label>Màu sắc</label>
+          <input
+            type="color"
+            id="color"
+            value="#FFD700"
+            style="padding: 0; min-height: 38px"
+          />
+        </div>
+      </div>
+      <label>Giá vé (VNĐ)</label>
+      <input type="number" id="price" value="5000000" />
+
+      <div class="flex-row">
+        <div class="flex-col">
+          <label>Tiền tố Mã ghế (vd: T1-A)</label>
+          <input type="text" id="prefix" value="T1-A" />
+        </div>
+        <div class="flex-col">
+          <label>Số thứ tự bắt đầu</label>
+          <input type="number" id="startNum" value="1" />
+        </div>
+      </div>
+
+      <hr />
+
+      <div style="display: flex; gap: 10px; margin-top: 10px">
+        <button onclick="undoLast()" style="background: #e67e22; flex: 1">
+          ↩️ Undo thao tác
+        </button>
+        <button onclick="clearAll()" style="background: #e74c3c; flex: 1">
+          🗑 Xóa tất cả
+        </button>
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-top: 20px">
+        <button
+          onclick="exportJson()"
+          style="background: #28a745; flex: 1; margin: 0"
+        >
+          ⬇️ XUẤT JSON GHẾ
+        </button>
+        <button
+          onclick="importJson()"
+          style="background: #8e44ad; flex: 1; margin: 0"
+        >
+          ⬆️ NHẬP JSON SỬA
+        </button>
+      </div>
+
+      <button
+        onclick="exportMapConfig()"
+        style="background: #17a2b8; margin-top: 10px"
+      >
+        ⬇️ XUẤT MAP CONFIG
+      </button>
+
+      <textarea
+        id="output"
+        rows="8"
+        placeholder="JSON sẽ hiện ở đây hoặc Copy/Upload JSON cũ vào đây để Nhập lại sơ đồ đang làm dở..."
+      ></textarea>
+    </div>
+
+    <!-- Khu vực vẽ Canvas -->
+    <div class="canvas-container" id="container">
+      <div class="map-area" id="mapArea">
+        <canvas id="canvas"></canvas>
+      </div>
+      <div id="tooltip" class="tooltip"></div>
+    </div>
+
+    <script>
+      let seats = [];
+      let historySeats = [];
+      let currentCounter = 1;
+      let drawMode = "single"; // 'single' hoặc 'grid'
+
+      let isDragging = false;
+      let startX = 0,
+        startY = 0;
+      let endX = 0,
+        endY = 0;
+
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      const mapArea = document.getElementById("mapArea");
+      const bgUrlInput = document.getElementById("bgUrl");
+      const tooltip = document.getElementById("tooltip");
+      const modeHint = document.getElementById("modeHint");
+
+      // Cập nhật số thứ tự khi thay đổi tay
+      document
+        .getElementById("startNum")
+        .addEventListener("change", function (e) {
+          currentCounter = parseInt(e.target.value);
+        });
+
+      // Đổi chế độ vẽ
+      function setMode(mode) {
+        drawMode = mode;
+        document.getElementById("modeSingle").classList.remove("active");
+        document.getElementById("modeGrid").classList.remove("active");
+        if (mode === "single") {
+          document.getElementById("modeSingle").classList.add("active");
+          modeHint.innerText =
+            "Click TRÁI để tạo 1 ghế độc lập. Click PHẢI để Xóa ghế rác.";
+        } else {
+          document.getElementById("modeGrid").classList.add("active");
+          modeHint.innerText =
+            "Kéo hình chữ nhật để tạo mảng ghế. Click PHẢI để Xóa ghế rác.";
+        }
+      }
+
+      // Xử lý background từ File (Upload Ảnh local)
+      function handleFileUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const imgUrl = e.target.result;
+          loadBackgroundImage(imgUrl);
+          // Gắn lại fileUrl vào thẻ input URL để tiện Export Map
+          bgUrlInput.value = "local_file_" + file.name;
+        };
+        reader.readAsDataURL(file);
+      }
+
+      // Xử lý background từ Link URL
+      function changeBackground() {
+        const url = bgUrlInput.value;
+        loadBackgroundImage(url);
+      }
+
+      function loadBackgroundImage(imgSource) {
+        const img = new Image();
+        img.crossOrigin = "Anonymous";
+        img.onload = function () {
+          mapArea.style.width = this.width + "px";
+          mapArea.style.height = this.height + "px";
+          mapArea.style.backgroundImage = `url('${imgSource}')`;
+
+          canvas.width = this.width;
+          canvas.height = this.height;
+
+          renderCanvas();
+        };
+        img.src = imgSource;
+      }
+
+      // Lưu lịch sử (để undo)
+      function saveHistory() {
+        historySeats.push(JSON.parse(JSON.stringify(seats)));
+        // Giữ lại 20 history
+        if (historySeats.length > 20) historySeats.shift();
+      }
+
+      function undoLast() {
+        if (historySeats.length > 0) {
+          seats = historySeats.pop();
+          renderCanvas();
+        }
+      }
+
+      function clearAll() {
+        if (
+          seats.length > 0 &&
+          confirm("Bạn có chắc muốn xóa 100% tất cả các ghế đang có?")
+        ) {
+          saveHistory();
+          seats = [];
+          renderCanvas();
+        }
+      }
+
+      // Ngăn chặn context menu gốc khi bấm chuột phải trên canvas (để dùng chuột phải làm lệnh Xóa)
+      canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
+      // Chuột nhấp xuống
+      canvas.addEventListener("mousedown", (e) => {
+        const rect = canvas.getBoundingClientRect();
+        startX = e.clientX - rect.left;
+        startY = e.clientY - rect.top;
+
+        // Nếu là Chuột Phải -> Xoá ghế
+        if (e.button === 2) {
+          removeSeatAtPosition(startX, startY);
+          return;
+        }
+
+        if (drawMode === "grid") {
+          isDragging = true;
+        } else {
+          saveHistory();
+          addSingleSeat(startX, startY);
+        }
+      });
+
+      // Chuột di chuyển
+      canvas.addEventListener("mousemove", (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // Hover hiển thị ToolTip chi tiết ghế
+        let hoveredSeat = null;
+        for (let i = seats.length - 1; i >= 0; i--) {
+          const s = seats[i];
+          const dist = Math.sqrt(
+            Math.pow(mouseX - s.x, 2) + Math.pow(mouseY - s.y, 2),
+          );
+          if (dist < 10) {
+            // khoanh vùng nhận diện click là 10px
+            hoveredSeat = s;
+            break;
+          }
+        }
+
+        if (hoveredSeat && !isDragging) {
+          tooltip.style.display = "block";
+          tooltip.style.left = e.clientX + 15 + "px";
+          tooltip.style.top = e.clientY + 15 + "px";
+          tooltip.innerHTML = `
+            <strong>Mã ghế:</strong> ${hoveredSeat.seatCode}<br>
+            <strong>Khu vực:</strong> ${hoveredSeat.zone}<br>
+            <strong>Hạng:</strong> ${hoveredSeat.category}<br>
+            <strong>Giá:</strong> ${hoveredSeat.price.toLocaleString()}đ
+          `;
+          canvas.style.cursor = "pointer";
+        } else {
+          tooltip.style.display = "none";
+          canvas.style.cursor = "crosshair";
+        }
+
+        // Vẽ khung nét đứt khi đang kéo Grid
+        if (isDragging && drawMode === "grid") {
+          endX = mouseX;
+          endY = mouseY;
+          renderCanvas();
+          drawSelectionBox(startX, startY, endX, endY);
+        }
+      });
+
+      // Nhả chuột -> Sinh Grid
+      canvas.addEventListener("mouseup", (e) => {
+        if (isDragging && drawMode === "grid") {
+          isDragging = false;
+          const rect = canvas.getBoundingClientRect();
+          endX = e.clientX - rect.left;
+          endY = e.clientY - rect.top;
+
+          const w = Math.abs(endX - startX);
+          const h = Math.abs(endY - startY);
+
+          // Chỉ sinh mảng nếu kéo đủ rộng
+          if (w > 20 && h > 20) {
+            const rowsStr = prompt(
+              "Nhập số HÀNG (Rows) ghế trong block (ví dụ: 5):",
+              "5",
+            );
+            if (rowsStr && rowsStr.trim() !== "") {
+              const colsStr = prompt(
+                "Nhập số CỘT (Cols) ghế trong block (ví dụ: 10):",
+                "10",
+              );
+              if (colsStr && colsStr.trim() !== "") {
+                const rows = parseInt(rowsStr) || 1;
+                const cols = parseInt(colsStr) || 1;
+
+                saveHistory();
+                generateGrid(
+                  Math.min(startX, endX),
+                  Math.min(startY, endY),
+                  w,
+                  h,
+                  rows,
+                  cols,
+                );
+              }
+            }
+          }
+          renderCanvas();
+        }
+      });
+
+      function addSingleSeat(x, y) {
+        const seatObj = createSeatObj(x, y);
+        seats.push(seatObj);
+        renderCanvas();
+      }
+
+      // Hàm tìm và xoá ghế tại tọa độ chuột phải
+      function removeSeatAtPosition(x, y) {
+        let removed = false;
+        // Quét ngược từ ghế vẽ cuối lên đầu
+        for (let i = seats.length - 1; i >= 0; i--) {
+          const s = seats[i];
+          const dist = Math.sqrt(Math.pow(x - s.x, 2) + Math.pow(y - s.y, 2));
+          if (dist < 12) {
+            // Vùng click ăn viền 12px
+            saveHistory(); // Lưu state trước khi xoá
+            seats.splice(i, 1);
+            removed = true;
+            break; // Xoá xong thoát vòng lặp (Chỉ xoá 1 ghế gần nhất mỗi click)
+          }
+        }
+        if (removed) renderCanvas();
+      }
+
+      function generateGrid(boxX, boxY, boxW, boxH, rows, cols) {
+        const stepX = cols > 1 ? boxW / (cols - 1) : 0;
+        const stepY = rows > 1 ? boxH / (rows - 1) : 0;
+
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            // Tọa độ của từng ghế dàn đều ra hình hộp chữ nhật
+            const x = cols === 1 ? boxX + boxW / 2 : boxX + c * stepX;
+            const y = rows === 1 ? boxY + boxH / 2 : boxY + r * stepY;
+
+            const seatObj = createSeatObj(x, y);
+            seats.push(seatObj);
+          }
+        }
+      }
+
+      function createSeatObj(x, y) {
+        const zone = document.getElementById("zone").value;
+        const category = document.getElementById("category").value;
+        const shape = document.getElementById("shape").value;
+        const color = document.getElementById("color").value;
+        const price = parseInt(document.getElementById("price").value);
+        const prefix = document.getElementById("prefix").value;
+
+        // Mã sinh tự động T1-A-1 ...
+        const seatCode = `${prefix}${currentCounter}`;
+        currentCounter++;
+        document.getElementById("startNum").value = currentCounter; // Cập nhật ra UI liên tục
+
+        return {
+          seatCode,
+          zone,
+          category,
+          shape,
+          color,
+          price,
+          x: Math.round(x),
+          y: Math.round(y),
+          status: "available", // Mặc định mở bán
+        };
+      }
+
+      function renderCanvas() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        seats.forEach((s) => {
+          ctx.fillStyle = s.color;
+          ctx.beginPath();
+
+          if (s.shape === "circle") {
+            ctx.arc(s.x, s.y, 6, 0, Math.PI * 2);
+          } else if (s.shape === "square") {
+            ctx.rect(s.x - 6, s.y - 6, 12, 12);
+          } else if (s.shape === "rect") {
+            // Ghế đôi
+            ctx.rect(s.x - 10, s.y - 6, 20, 12);
+          } else if (s.shape === "triangle") {
+            ctx.moveTo(s.x, s.y - 6);
+            ctx.lineTo(s.x - 6, s.y + 6);
+            ctx.lineTo(s.x + 6, s.y + 6);
+          }
+
+          ctx.fill();
+          ctx.closePath();
+
+          // Viền mờ cho từng điểm ảnh ghế
+          ctx.strokeStyle = "rgba(0,0,0,0.5)";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        });
+      }
+
+      function drawSelectionBox(x1, y1, x2, y2) {
+        ctx.fillStyle = "rgba(188, 19, 254, 0.2)";
+        ctx.strokeStyle = "#bc13fe";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+
+        const x = Math.min(x1, x2);
+        const y = Math.min(y1, y2);
+        const w = Math.abs(x2 - x1);
+        const h = Math.abs(y2 - y1);
+
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeRect(x, y, w, h);
+
+        ctx.setLineDash([]);
+      }
+
+      function exportJson() {
+        const output = document.getElementById("output");
+        output.value = JSON.stringify(seats, null, 2);
+      }
+
+      function exportMapConfig() {
+        const bgUrl = document.getElementById("bgUrl").value;
+        const config = {
+          width: canvas.width,
+          height: canvas.height,
+          bgImage: bgUrl,
+          totalSeatsGen: seats.length,
+        };
+        document.getElementById("output").value = JSON.stringify(
+          config,
+          null,
+          2,
+        );
+      }
+
+      function importJson() {
+        const inputData = document.getElementById("output").value;
+        if (!inputData || inputData.trim() === "") {
+          alert(
+            "Vui lòng dán nội dung JSON (Danh sách File) vào ô trống bên dưới.",
+          );
+          return;
+        }
+
+        try {
+          const parsedData = JSON.parse(inputData);
+          if (!Array.isArray(parsedData)) {
+            alert(
+              "Định dạng không hợp lệ. Vui lòng nhập đúng JSON xuất ra chứa mảng [ ] các ghế.",
+            );
+            return;
+          }
+
+          if (
+            seats.length > 0 &&
+            !confirm(
+              "Bạn có chắc muốn chép đè Map hiện tại bằng Map mới? Tất cả ghế hiện tại sẽ mất (có thể Undo).",
+            )
+          ) {
+            return;
+          }
+
+          saveHistory();
+          seats = parsedData;
+
+          // Cập nhật lại bộ đếm ghế mới tránh đặt mã trùng khi sửa map cũ
+          if (seats.length > 0) {
+            // Logic tìm số ghế cao nhất để không bị trùng lặp Mã nếu vẽ thêm vào
+            // Ví dụ "T1-A-150" => parseInt lọc được 150
+            let maxNum = 0;
+            seats.forEach((s) => {
+              const matchNum = s.seatCode.match(/\d+$/);
+              if (matchNum) {
+                const num = parseInt(matchNum[0], 10);
+                if (num > maxNum) maxNum = num;
+              }
+            });
+            currentCounter = maxNum + 1;
+            document.getElementById("startNum").value = currentCounter;
+          }
+
+          renderCanvas();
+          alert(
+            `Đã nhập thành công ${seats.length} ghế! Bạn có thể tiếp tục chỉnh sửa.`,
+          );
+        } catch (e) {
+          alert(
+            "Lỗi phân tích JSON. Xin kiểm tra lại xem nội dung nhập vào có dấu má đúng chuẩn file .json chưa.\nChi tiết: " +
+              e.message,
+          );
+        }
+      }
+
+      // Boot
+      changeBackground();
+    </script>
+  </body>
+</html>

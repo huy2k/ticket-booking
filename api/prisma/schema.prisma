@@ -1,0 +1,93 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum SeatStatus {
+  AVAILABLE
+  PENDING
+  SOLD
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String?  @unique
+  phone        String?  @unique
+  passwordHash String   @map("password_hash")
+  role         Role     @default(USER)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tickets Ticket[]
+
+  @@map("users")
+}
+
+model Event {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  saleStartAt DateTime? @map("sale_start_at")
+  totalSeats  Int       @map("total_seats")
+  mapConfig   Json?     @map("map_config")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  seats   Seat[]
+  tickets Ticket[]
+
+  @@map("events")
+}
+
+model Seat {
+  id          String     @id @default(uuid())
+  eventId     String     @map("event_id")
+  seatCode    String     @map("seat_code") // e.g. "A1", "B12"
+  row         String
+  col         Int
+  x           Float?     // Tuỳ chọn cho sơ đồ toạ độ
+  y           Float?     // Tuỳ chọn cho sơ đồ toạ độ
+  color       String?    // Mã màu sắc riêng để đổ màu tự động
+  category    String     @default("standard") // standard | vip | economy
+  price       Decimal    @db.Decimal(10, 2)
+  status        SeatStatus @default(AVAILABLE)
+  lockedBy      String?    @map("locked_by")      // userId who locked
+  lockBookingId String?    @map("lock_booking_id")// bookingId that locked this seat
+  lockedUntil   DateTime?  @map("locked_until")   // expiry of lock
+
+  event   Event    @relation(fields: [eventId], references: [id])
+  tickets Ticket[]
+
+  @@unique([eventId, seatCode])
+  @@index([eventId, status])
+  @@map("seats")
+}
+
+model Ticket {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  seatId      String   @map("seat_id")
+  eventId     String   @map("event_id")
+  paymentRef  String?  @map("payment_ref")
+  buyerName   String   @map("buyer_name")
+  buyerEmail  String   @map("buyer_email")
+  buyerPhone  String   @map("buyer_phone")
+  purchasedAt DateTime @default(now()) @map("purchased_at")
+
+  user  User  @relation(fields: [userId], references: [id])
+  seat  Seat  @relation(fields: [seatId], references: [id])
+  event Event @relation(fields: [eventId], references: [id])
+
+  @@map("tickets")
+}

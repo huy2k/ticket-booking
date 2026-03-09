@@ -1,0 +1,204 @@
+@import "tailwindcss";
+
+/* ── Design tokens (PRD: dark mode + neon purple) ─────────────── */
+:root {
+  --bg-primary: #121212;
+  --bg-surface: #1e1e1e;
+  --bg-card: #252525;
+  --neon-purple: #bc13fe;
+  --neon-purple-dim: #9b10d4;
+  --neon-purple-glow: rgba(188, 19, 254, 0.35);
+  --text-primary: #f0f0f0;
+  --text-secondary: #a0a0a0;
+  --seat-available: #e0e0e0;
+  --seat-pending: #bc13fe;
+  --seat-sold: #424242;
+  --success: #4caf50;
+  --error: #f44336;
+  --warning: #ff9800;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--neon-purple-dim);
+  border-radius: 3px;
+}
+
+/* ── Neon button ─────────────────────────────────────────────── */
+.btn-neon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.75rem;
+  background: var(--neon-purple);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  min-height: 48px;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+  box-shadow: 0 0 14px var(--neon-purple-glow);
+}
+.btn-neon:hover {
+  background: var(--neon-purple-dim);
+  transform: translateY(-2px);
+  box-shadow: 0 0 24px var(--neon-purple-glow);
+}
+.btn-neon:active {
+  transform: translateY(0);
+}
+.btn-neon:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Card ────────────────────────────────────────────────────── */
+.card {
+  background: var(--bg-card);
+  border-radius: 16px;
+  border: 1px solid rgba(188, 19, 254, 0.12);
+  padding: 2rem;
+}
+
+/* ── Sound wave animation (Waiting Room background) ─────────── */
+@keyframes wave-pulse {
+  0%,
+  100% {
+    transform: scaleY(0.4);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 0.7;
+  }
+}
+
+.wave-bar {
+  display: inline-block;
+  width: 4px;
+  background: var(--neon-purple);
+  border-radius: 2px;
+  animation: wave-pulse 1.2s ease-in-out infinite;
+}
+
+/* ── Circular progress ───────────────────────────────────────── */
+.circle-progress {
+  transform: rotate(-90deg);
+}
+.circle-progress-track {
+  fill: none;
+  stroke: rgba(188, 19, 254, 0.15);
+  stroke-width: 8;
+}
+.circle-progress-fill {
+  fill: none;
+  stroke: var(--neon-purple);
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.8s ease;
+  filter: drop-shadow(0 0 6px var(--neon-purple));
+}
+
+/* ── Toast ───────────────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 9999;
+  background: var(--bg-card);
+  border: 1px solid var(--neon-purple);
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  max-width: 360px;
+  box-shadow: 0 0 20px var(--neon-purple-glow);
+  animation: toast-in 0.3s ease forwards;
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Floating bar (Seat selection) ───────────────────────────── */
+.floating-bar {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-card);
+  border: 1px solid var(--neon-purple);
+  border-radius: 100px;
+  padding: 0.75rem 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  box-shadow: 0 0 24px var(--neon-purple-glow);
+  z-index: 100;
+  white-space: nowrap;
+}
+
+/* ── Input ───────────────────────────────────────────────────── */
+.input-neon {
+  background: var(--bg-surface);
+  border: 1px solid rgba(188, 19, 254, 0.3);
+  border-radius: 8px;
+  color: var(--text-primary);
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  width: 100%;
+  transition: border-color 0.2s;
+  outline: none;
+}
+.input-neon:focus {
+  border-color: var(--neon-purple);
+  box-shadow: 0 0 0 3px var(--neon-purple-glow);
+}
+
+/* ── Countdown Timer ─────────────────────────────────────────── */
+.timer-critical {
+  color: var(--error);
+  animation: blink 1s step-start infinite;
+}
+@keyframes blink {
+  50% {
+    opacity: 0.4;
+  }
+}
