@@ -103,9 +103,10 @@ interface WaitingRoomProps {
   eventId: string;
   userId: string;
   token: string;
+  onEnter?: () => void;
 }
 
-export default function WaitingRoom({ eventId, userId, token }: WaitingRoomProps) {
+export default function WaitingRoom({ eventId, userId, token, onEnter }: WaitingRoomProps) {
   const [position, setPosition] = useState(0);
   const [total, setTotal] = useState(0);
   const [estimatedMinutes, setEstimatedMinutes] = useState(0);
@@ -123,6 +124,10 @@ export default function WaitingRoom({ eventId, userId, token }: WaitingRoomProps
       });
       if (res.ok) {
         const data = await res.json();
+        if (data.entered) {
+          if (onEnter) onEnter();
+          return;
+        }
         setPosition(data.position);
         setTotal(data.total);
         setEstimatedMinutes(data.estimatedWaitMinutes);
@@ -133,7 +138,7 @@ export default function WaitingRoom({ eventId, userId, token }: WaitingRoomProps
         }
       }
     } catch {/* ignore */}
-  }, [API, eventId, token]);
+  }, [API, eventId, token, onEnter]);
 
   // Heartbeat every 5s
   const sendHeartbeat = useCallback(async () => {

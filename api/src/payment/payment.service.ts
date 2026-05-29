@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../common/redis.service';
 import { SeatService } from '../seat/seat.service';
+import { QueueService } from '../queue/queue.service';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -12,6 +13,7 @@ export class PaymentService {
     private configService: ConfigService,
     private redisService: RedisService,
     private seatService: SeatService,
+    private queueService: QueueService,
   ) {}
 
   async createPaymentUrl(userId: string, bookingId: string, seatIds: string[], amount: number, ipAddr: string, buyerInfo: { buyerName: string; buyerEmail: string; buyerPhone: string }): Promise<string> {
@@ -93,6 +95,13 @@ export class PaymentService {
                await this.seatService.confirmPurchase(seatId, orderData.userId, orderData.bookingId, txnRef, orderData.buyerInfo);
            }
            await this.redisService.remove(`vnp_order:${txnRef}`);
+
+           // Release queue active slot
+           const eventId = await this.redisService.getUserEvent(orderData.userId);
+           if (eventId) {
+             await this.queueService.onUserLeft(eventId, orderData.userId);
+           }
+
            return { RspCode: '00', Message: 'Success', tickets: orderData.seatIds };
          } catch(e) {
              this.logger.error('Failed to confirm tickets', e);
@@ -104,6 +113,13 @@ export class PaymentService {
              await this.seatService.releaseSeat(seatId);
          }
          await this.redisService.remove(`vnp_order:${txnRef}`);
+
+         // Release queue active slot
+         const eventId = await this.redisService.getUserEvent(orderData.userId);
+         if (eventId) {
+           await this.queueService.onUserLeft(eventId, orderData.userId);
+         }
+
          return { RspCode: '01', Message: 'Payment failed' };
       }
     } else {

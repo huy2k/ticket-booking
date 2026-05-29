@@ -43,6 +43,10 @@ model Event {
   totalSeats  Int       @map("total_seats")
   mapConfig   Json?     @map("map_config")
   createdAt   DateTime  @default(now()) @map("created_at")
+  location    String?   @default("Hồ Chí Minh")
+  eventDate   DateTime? @map("event_date")
+  bannerUrl   String?   @map("banner_url")
+  category    String?   @default("music")
 
   seats   Seat[]
   tickets Ticket[]

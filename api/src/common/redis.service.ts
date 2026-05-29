@@ -56,22 +56,79 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     await this.client.zrem(`queue:${eventId}`, userId);
   }
 
-  // ── Counter helpers ────────────────────────────────────────────────────────
-  /** Get number of active users in checkout area */
+  // ── Active Zone & Heartbeat helpers ────────────────────────────────────────
+  /** Get number of active users in checkout area (still alive) */
   async getActiveCount(eventId: string): Promise<number> {
-    const val = await this.client.get(`active_count:${eventId}`);
-    return val ? parseInt(val, 10) : 0;
+    const now = Date.now();
+    return this.client.zcount(`active_users:${eventId}`, now, '+inf');
   }
 
-  async incrementActive(eventId: string): Promise<number> {
-    return this.client.incr(`active_count:${eventId}`);
+  /** Add user to active checkout zone with expiry timestamp */
+  async addToActiveZone(eventId: string, userId: string, ttlSeconds: number): Promise<void> {
+    const expiry = Date.now() + ttlSeconds * 1000;
+    await this.client.zadd(`active_users:${eventId}`, expiry, userId);
   }
 
-  async decrementActive(eventId: string): Promise<number> {
-    return this.client.decr(`active_count:${eventId}`);
+  /** Remove user from active zone */
+  async removeFromActiveZone(eventId: string, userId: string): Promise<void> {
+    await this.client.zrem(`active_users:${eventId}`, userId);
   }
 
-  // ── Heartbeat helpers ──────────────────────────────────────────────────────
+  /** Check if a user is currently active for an event (not expired) */
+  async isUserActiveInEvent(eventId: string, userId: string): Promise<boolean> {
+    const scoreStr = await this.client.zscore(`active_users:${eventId}`, userId);
+    if (!scoreStr) return false;
+    return parseFloat(scoreStr) >= Date.now();
+  }
+
+  /** Get active users who have expired heartbeats */
+  async getExpiredActiveUsers(eventId: string): Promise<string[]> {
+    const now = Date.now();
+    return this.client.zrangebyscore(`active_users:${eventId}`, '-inf', now);
+  }
+
+  /** Remove active users with expired heartbeats */
+  async removeExpiredActiveUsers(eventId: string): Promise<void> {
+    const now = Date.now();
+    await this.client.zremrangebyscore(`active_users:${eventId}`, '-inf', now);
+  }
+
+  /** Renew queue heartbeat for a user waiting in queue */
+  async queueHeartbeatRenew(eventId: string, userId: string, ttlSeconds: number): Promise<void> {
+    const expiry = Date.now() + ttlSeconds * 1000;
+    await this.client.zadd(`queue_heartbeats:${eventId}`, expiry, userId);
+  }
+
+  /** Check if a queue user's heartbeat is still alive */
+  async isQueueUserAlive(eventId: string, userId: string): Promise<boolean> {
+    const scoreStr = await this.client.zscore(`queue_heartbeats:${eventId}`, userId);
+    if (!scoreStr) return false;
+    return parseFloat(scoreStr) >= Date.now();
+  }
+
+  /** Get users in queue whose heartbeats have expired */
+  async getExpiredQueueUsers(eventId: string): Promise<string[]> {
+    const now = Date.now();
+    return this.client.zrangebyscore(`queue_heartbeats:${eventId}`, '-inf', now);
+  }
+
+  /** Remove expired users from queue heartbeats */
+  async removeExpiredQueueUsers(eventId: string): Promise<void> {
+    const now = Date.now();
+    await this.client.zremrangebyscore(`queue_heartbeats:${eventId}`, '-inf', now);
+  }
+
+  /** Store the eventId that the user is currently queueing/active for */
+  async setUserEvent(userId: string, eventId: string, ttlSeconds = 3600): Promise<void> {
+    await this.client.set(`user_event:${userId}`, eventId, 'EX', ttlSeconds);
+  }
+
+  /** Get the current eventId of the user */
+  async getUserEvent(userId: string): Promise<string | null> {
+    return this.client.get(`user_event:${userId}`);
+  }
+
+  // ── Legacy Heartbeat helpers (kept for compatibility) ─────────────────────
   /** Renew user heartbeat (TTL 30s by default) */
   async heartbeatRenew(userId: string, ttlSeconds = 30): Promise<void> {
     await this.client.set(`heartbeat:${userId}`, '1', 'EX', ttlSeconds);

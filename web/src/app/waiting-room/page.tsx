@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import WaitingRoom from '@/components/WaitingRoom';
+import { useSocket } from '@/hooks/useSocket';
 
-export default function WaitingRoomPage() {
+function WaitingRoomContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const EVENT_ID = searchParams.get('eventId') || 'demo-event-001';
@@ -17,6 +18,19 @@ export default function WaitingRoomPage() {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [entered, setEntered] = useState(false);
+
+  const handleEnter = useCallback(() => {
+    setEntered(true);
+    // Short delay for fade-out UX, then navigate
+    setTimeout(() => router.push(`/seat-selection?eventId=${EVENT_ID}&bookingId=${bookingId}`), 1200);
+  }, [router, EVENT_ID, bookingId]);
+
+  // WebSocket real-time push listener
+  useSocket({
+    userId: state?.userId,
+    eventId: state?.eventId,
+    onQueueEnter: handleEnter,
+  });
 
   const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
@@ -37,16 +51,7 @@ export default function WaitingRoomPage() {
 
     setState({ userId, token, eventId: EVENT_ID });
     setLoading(false);
-
-    // Subscribe to WebSocket enter event
-    // (handled inside WaitingRoom via poll; WebSocket done via gateway)
   }, [router]);
-
-  const handleEnter = useCallback(() => {
-    setEntered(true);
-    // Short delay for fade-out UX, then navigate
-    setTimeout(() => router.push(`/seat-selection?eventId=${EVENT_ID}&bookingId=${bookingId}`), 1200);
-  }, [router, EVENT_ID, bookingId]);
 
   if (loading) {
     return (
@@ -95,6 +100,19 @@ export default function WaitingRoomPage() {
       eventId={state.eventId}
       userId={state.userId}
       token={state.token}
+      onEnter={handleEnter}
     />
+  );
+}
+
+export default function WaitingRoomPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: 'var(--text-secondary)' }}>Đang tải phòng chờ...</p>
+      </div>
+    }>
+      <WaitingRoomContent />
+    </Suspense>
   );
 }

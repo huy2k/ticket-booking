@@ -109,5 +109,3 @@ Web sẽ chạy tại **http://localhost:3001**
 - ✅ Dark mode + Neon Purple (#BC13FE) UI
 
 ---
-
-_Built with ♥ by Antigravity — Virtual Queue Ticket Booking System_

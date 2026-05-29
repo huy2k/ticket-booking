@@ -82,6 +82,22 @@ function SeatSelectionContent() {
     return () => clearInterval(interval);
   }, [fetchSeats, token]);
 
+  // Heartbeat every 5s to maintain active queue slot
+  useEffect(() => {
+    if (!token) return;
+    const sendHeartbeat = async () => {
+      try {
+        await fetch(`${API}/queue/heartbeat`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch {/* ignore */}
+    };
+    sendHeartbeat();
+    const interval = setInterval(sendHeartbeat, 5000);
+    return () => clearInterval(interval);
+  }, [API, token]);
+
   const handleSeatToggle = useCallback((seat: Seat) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
