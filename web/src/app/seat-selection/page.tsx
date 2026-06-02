@@ -43,6 +43,7 @@ function SeatSelectionContent() {
   const [buyerEmail, setBuyerEmail] = useState('');
   const [buyerPhone, setBuyerPhone] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
   const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
@@ -54,6 +55,44 @@ function SeatSelectionContent() {
     if (!t) { router.replace('/login'); return; }
     setToken(t);
   }, [router]);
+
+  // Calculate remaining booking time based on entry time
+  useEffect(() => {
+    if (!bookingId) return;
+
+    // Clean up expired booking keys from localStorage to prevent clutter
+    try {
+      const nowTs = Date.now();
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('booking_expiry_')) {
+          const val = localStorage.getItem(key);
+          if (val && parseInt(val, 10) < nowTs) {
+            keysToRemove.push(key);
+          }
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+    } catch (e) {
+      console.error('Error cleaning up localStorage:', e);
+    }
+
+    const key = `booking_expiry_${bookingId}`;
+    const storedExpiry = localStorage.getItem(key);
+    const now = Date.now();
+    let expiryTime = 0;
+
+    if (storedExpiry) {
+      expiryTime = parseInt(storedExpiry, 10);
+    } else {
+      expiryTime = now + LOCK_DURATION_SECONDS * 1000;
+      localStorage.setItem(key, expiryTime.toString());
+    }
+
+    const calculatedTimeLeft = Math.max(0, Math.floor((expiryTime - now) / 1000));
+    setTimeLeft(calculatedTimeLeft);
+  }, [bookingId]);
 
   // Fetch seat map
   const fetchSeats = useCallback(async () => {
@@ -151,7 +190,7 @@ function SeatSelectionContent() {
     } finally {
       setLocking(false);
     }
-  }, [selectedIds, token, API, fetchSeats, showToast]);
+  }, [selectedIds, token, API, fetchSeats, showToast, bookingId]);
 
   // Step 2: Submit buyer info → create VNPay URL → redirect
   const handleCheckout = useCallback(async (e: React.FormEvent) => {
@@ -189,18 +228,24 @@ function SeatSelectionContent() {
       }
 
       const { url } = await payRes.json();
+      if (bookingId) {
+        localStorage.removeItem(`booking_expiry_${bookingId}`);
+      }
       window.location.assign(url);
     } catch {
       showToast('❌ Lỗi kết nối. Vui lòng thử lại.');
     } finally {
       setSubmitting(false);
     }
-  }, [selectedIds, seats, token, API, showToast, buyerName, buyerEmail, buyerPhone]);
+  }, [selectedIds, seats, token, API, showToast, buyerName, buyerEmail, buyerPhone, bookingId]);
 
   const handleExpired = useCallback(() => {
+    if (bookingId) {
+      localStorage.removeItem(`booking_expiry_${bookingId}`);
+    }
     showToast('⏰ Phiên làm việc đã hết hạn!');
     setTimeout(() => router.replace('/'), 2000);
-  }, [router, showToast]);
+  }, [bookingId, router, showToast]);
 
   const selectedSeats = seats.filter((s) => selectedIds.has(s.id));
   const totalPrice = selectedSeats.reduce((sum, s) => sum + Number(s.price), 0);
@@ -252,7 +297,9 @@ function SeatSelectionContent() {
       </div>
 
       {/* Countdown Timer */}
-      <CountdownTimer initialSeconds={LOCK_DURATION_SECONDS} onExpired={handleExpired} />
+      {timeLeft !== null && (
+        <CountdownTimer initialSeconds={timeLeft} onExpired={handleExpired} />
+      )}
 
       {/* Floating Bar */}
       {selectedIds.size > 0 && !showCheckout && (
