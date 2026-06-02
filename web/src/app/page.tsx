@@ -18,6 +18,7 @@ interface Event {
 export default function HomePage() {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [events, setEvents] = useState<Event[]>([]);
@@ -34,7 +35,9 @@ export default function HomePage() {
 
   useEffect(() => {
     const token = localStorage.getItem('auth_token');
+    const role = localStorage.getItem('user_role');
     setIsLoggedIn(!!token);
+    setUserRole(role);
 
     fetch(`${API}/events`)
       .then((res) => res.json())
@@ -83,7 +86,9 @@ export default function HomePage() {
   const handleLogout = useCallback(() => {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_id');
+    localStorage.removeItem('user_role');
     setIsLoggedIn(false);
+    setUserRole(null);
   }, []);
 
   const filteredEvents = useMemo(() => {
@@ -152,32 +157,84 @@ export default function HomePage() {
         <div style={{ fontWeight: 900, fontSize: '1.5rem', color: 'var(--neon-purple)', display: 'flex', alignItems: 'center', gap: '0.5rem', letterSpacing: '0.5px' }}>
           <span style={{ fontSize: '1.75rem' }}>🎟️</span> TicketZone
         </div>
-        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           {isLoggedIn ? (
-            <button
-              onClick={handleLogout}
-              style={{
-                background: 'transparent',
-                border: '1px solid rgba(188,19,254,0.4)',
-                color: 'var(--text-secondary)',
-                borderRadius: 8,
-                padding: '0.5rem 1.2rem',
-                cursor: 'pointer',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(188, 19, 254, 0.1)';
-                e.currentTarget.style.color = '#fff';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.color = 'var(--text-secondary)';
-              }}
-            >
-              Đăng xuất
-            </button>
+            <>
+              {userRole === 'ADMIN' && (
+                <button
+                  onClick={() => router.push('/admin')}
+                  style={{
+                    background: 'rgba(188,19,254,0.1)',
+                    border: '1px solid rgba(188,19,254,0.4)',
+                    color: 'var(--neon-purple)',
+                    borderRadius: 8,
+                    padding: '0.5rem 1.2rem',
+                    cursor: 'pointer',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(188, 19, 254, 0.25)';
+                    e.currentTarget.style.color = '#fff';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(188, 19, 254, 0.1)';
+                    e.currentTarget.style.color = 'var(--neon-purple)';
+                  }}
+                >
+                  ⚙️ Quản trị
+                </button>
+              )}
+              <button
+                onClick={() => router.push('/my-tickets')}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  color: '#fff',
+                  borderRadius: 8,
+                  padding: '0.5rem 1.2rem',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+                }}
+              >
+                🎫 Vé của tôi
+              </button>
+              <button
+                onClick={handleLogout}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid rgba(255,59,48,0.4)',
+                  color: '#FF3B30',
+                  borderRadius: 8,
+                  padding: '0.5rem 1.2rem',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(255, 59, 48, 0.1)';
+                  e.currentTarget.style.color = '#fff';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = '#FF3B30';
+                }}
+              >
+                Đăng xuất
+              </button>
+            </>
           ) : (
             <button className="btn-neon" onClick={() => router.push('/login')} style={{ padding: '0.5rem 1.5rem', fontSize: '0.875rem', borderRadius: 8 }}>
               Đăng nhập

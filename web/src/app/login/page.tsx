@@ -41,6 +41,7 @@ export default function LoginPage() {
 
       localStorage.setItem('auth_token', data.token);
       localStorage.setItem('user_id', data.user.id);
+      localStorage.setItem('user_role', data.user.role || 'USER');
       router.push('/');
     } catch {
       setError('Không thể kết nối đến máy chủ');

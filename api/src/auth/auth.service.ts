@@ -42,7 +42,7 @@ export class AuthService {
         phone: dto.phone,
         passwordHash,
       },
-      select: { id: true, email: true, phone: true, createdAt: true },
+      select: { id: true, email: true, phone: true, role: true, createdAt: true },
     });
 
     const token = this.signToken(user.id);
@@ -67,7 +67,7 @@ export class AuthService {
 
     const token = this.signToken(user.id);
     return {
-      user: { id: user.id, email: user.email, phone: user.phone },
+      user: { id: user.id, email: user.email, phone: user.phone, role: user.role },
       token,
     };
   }
