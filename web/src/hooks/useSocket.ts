@@ -25,6 +25,7 @@ interface UseSocketOptions {
   onQueueEnter?: () => void;
   onQueueSoon?: () => void;
   onSoldOut?: () => void;
+  onSeatsUpdate?: () => void;
 }
 
 export function useSocket(options: UseSocketOptions = {}) {
@@ -57,12 +58,16 @@ export function useSocket(options: UseSocketOptions = {}) {
     if (options.onSoldOut) {
       socket.on("queue:sold_out", options.onSoldOut);
     }
+    if (options.onSeatsUpdate) {
+      socket.on("seats:update", options.onSeatsUpdate);
+    }
 
     return () => {
       socket.off("queue:update");
       socket.off("queue:enter");
       socket.off("queue:soon");
       socket.off("queue:sold_out");
+      socket.off("seats:update");
       socket.off("connect");
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

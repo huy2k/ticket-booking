@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { SeatMap, Seat } from '@/components/SeatMap';
 import { CountdownTimer } from '@/components/CountdownTimer';
 import { Suspense } from 'react';
+import { useSocket } from '@/hooks/useSocket';
 
 const LOCK_DURATION_SECONDS = 10 * 60; // 10 minutes
 
@@ -115,27 +116,42 @@ function SeatSelectionContent() {
     }
   }, [API, eventId, token]);
 
+  // Decode userId from JWT token
+  const getUserIdFromToken = (tok: string): string => {
+    try {
+      const payload = tok.split('.')[1];
+      if (!payload) return '';
+      return JSON.parse(atob(payload)).id || '';
+    } catch {
+      return '';
+    }
+  };
+  const userId = getUserIdFromToken(token);
+
+  // Initialize socket and listen for real-time seat updates
+  const { sendHeartbeat } = useSocket({
+    userId,
+    eventId,
+    onSeatsUpdate: useCallback(() => {
+      console.log('⚡ Sơ đồ ghế đã được thay đổi từ người khác, đang cập nhật...');
+      fetchSeats();
+    }, [fetchSeats]),
+  });
+
   useEffect(() => {
     if (token) fetchSeats();
-    const interval = setInterval(() => { if (token) fetchSeats(); }, 5000);
-    return () => clearInterval(interval);
   }, [fetchSeats, token]);
 
-  // Heartbeat every 5s to maintain active queue slot
+  // Heartbeat every 5s to maintain active queue slot via WebSocket
   useEffect(() => {
-    if (!token) return;
-    const sendHeartbeat = async () => {
-      try {
-        await fetch(`${API}/queue/heartbeat`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      } catch {/* ignore */}
+    if (!token || !userId) return;
+    const sendHeart = () => {
+      sendHeartbeat(userId, eventId);
     };
-    sendHeartbeat();
-    const interval = setInterval(sendHeartbeat, 5000);
+    sendHeart();
+    const interval = setInterval(sendHeart, 5000);
     return () => clearInterval(interval);
-  }, [API, token]);
+  }, [token, userId, eventId, sendHeartbeat]);
 
   const handleSeatToggle = useCallback((seat: Seat) => {
     setSelectedIds((prev) => {

@@ -6,12 +6,16 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SeatStatus } from '@prisma/client';
+import { QueueGateway } from '../gateway/queue.gateway';
 
 @Injectable()
 export class SeatService {
   private readonly LOCK_MINUTES: number;
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly gateway: QueueGateway,
+  ) {
     this.LOCK_MINUTES = parseInt(process.env.SEAT_LOCK_MINUTES || '10', 10);
   }
 
@@ -101,12 +105,25 @@ export class SeatService {
         },
       });
     });
+
+    const seatObj = await this.prisma.seat.findUnique({
+      where: { id: seatId },
+      select: { eventId: true },
+    });
+    if (seatObj) {
+      this.gateway.server.to(`event:${seatObj.eventId}`).emit('seats:update', { eventId: seatObj.eventId });
+    }
   }
 
   /**
    * Release a seat (timeout or user cancelled)
    */
   async releaseSeat(seatId: string): Promise<void> {
+    const seatObj = await this.prisma.seat.findUnique({
+      where: { id: seatId },
+      select: { eventId: true },
+    });
+
     await this.prisma.seat.updateMany({
       where: {
         id: seatId,
@@ -119,6 +136,10 @@ export class SeatService {
         lockedUntil: null,
       },
     });
+
+    if (seatObj) {
+      this.gateway.server.to(`event:${seatObj.eventId}`).emit('seats:update', { eventId: seatObj.eventId });
+    }
   }
 
   /**
@@ -131,7 +152,7 @@ export class SeatService {
     paymentRef: string,
     buyerInfo?: { buyerName: string; buyerEmail: string; buyerPhone: string },
   ): Promise<{ ticketId: string }> {
-    return await this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const seat = await tx.seat.findUnique({ where: { id: seatId } });
 
       if (!seat) throw new NotFoundException('Ghế không tồn tại');
@@ -168,12 +189,30 @@ export class SeatService {
 
       return { ticketId: ticket.id };
     });
+
+    const seatObj = await this.prisma.seat.findUnique({
+      where: { id: seatId },
+      select: { eventId: true },
+    });
+    if (seatObj) {
+      this.gateway.server.to(`event:${seatObj.eventId}`).emit('seats:update', { eventId: seatObj.eventId });
+    }
+
+    return result;
   }
 
   /**
    * Cron job: release all PENDING seats past their lock expiry
    */
   async releaseExpiredSeats(): Promise<number> {
+    const expiredSeats = await this.prisma.seat.findMany({
+      where: {
+        status: SeatStatus.PENDING,
+        lockedUntil: { lt: new Date() },
+      },
+      select: { eventId: true },
+    });
+
     const result = await this.prisma.seat.updateMany({
       where: {
         status: SeatStatus.PENDING,
@@ -186,6 +225,14 @@ export class SeatService {
         lockedUntil: null,
       },
     });
+
+    if (result.count > 0) {
+      const uniqueEventIds = Array.from(new Set(expiredSeats.map((s) => s.eventId)));
+      uniqueEventIds.forEach((eventId) => {
+        this.gateway.server.to(`event:${eventId}`).emit('seats:update', { eventId });
+      });
+    }
+
     return result.count;
   }
 }

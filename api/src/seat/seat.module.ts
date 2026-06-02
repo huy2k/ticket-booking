@@ -3,9 +3,10 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { SeatController } from './seat.controller';
 import { SeatService } from './seat.service';
 import { SeatScheduler } from './seat.scheduler';
+import { GatewayModule } from '../gateway/gateway.module';
 
 @Module({
-  imports: [ScheduleModule.forRoot()],
+  imports: [ScheduleModule.forRoot(), GatewayModule],
   controllers: [SeatController],
   providers: [SeatService, SeatScheduler],
   exports: [SeatService],
