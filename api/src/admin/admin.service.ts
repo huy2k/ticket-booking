@@ -68,7 +68,7 @@ export class AdminService {
     name: string;
     description?: string;
     saleStartAt?: string;
-    mapMode?: 'grid' | 'coordinate'; // Thêm field quy định mode
+    mapMode?: 'grid' | 'coordinate' | 'svg'; // Thêm field quy định mode
     mapConfig?: any; // Tuỳ chỉnh map config
     rows?: number;
     cols?: number;
@@ -85,9 +85,17 @@ export class AdminService {
     }>;
   }) {
     const isCoordinate = data.mapMode === 'coordinate';
-    const totalSeats = isCoordinate
-      ? data.seatsConfig?.length || 0
-      : (data.rows || 0) * (data.cols || 0);
+    const isSvg = data.mapMode === 'svg';
+
+    let totalSeats = 0;
+    if (isCoordinate) {
+      totalSeats = data.seatsConfig?.length || 0;
+    } else if (isSvg) {
+      const limits = data.mapConfig?.ticketLimits || { vvip: 20, vip: 40, gold: 60, silver: 100 };
+      totalSeats = Number(limits.vvip || 0) + Number(limits.vip || 0) + Number(limits.gold || 0) + Number(limits.silver || 0);
+    } else {
+      totalSeats = (data.rows || 0) * (data.cols || 0);
+    }
 
     const event = await this.prisma.event.create({
       data: {
@@ -116,6 +124,28 @@ export class AdminService {
           price: s.price,
           status: SeatStatus.AVAILABLE,
         });
+      }
+    } else if (isSvg && data.prices) {
+      const limits = data.mapConfig?.ticketLimits || { vvip: 20, vip: 40, gold: 60, silver: 100 };
+      const categories = [
+        { name: 'VVIP', limit: Number(limits.vvip || 0), price: data.prices.vvip },
+        { name: 'VIP', limit: Number(limits.vip || 0), price: data.prices.vip },
+        { name: 'GOLD', limit: Number(limits.gold || 0), price: data.prices.gold },
+        { name: 'SILVER', limit: Number(limits.silver || 0), price: data.prices.silver },
+      ];
+
+      for (const cat of categories) {
+        for (let i = 1; i <= cat.limit; i++) {
+          seatsData.push({
+            eventId: event.id,
+            seatCode: `${cat.name}-${i.toString().padStart(3, '0')}`,
+            row: cat.name[0],
+            col: i,
+            category: cat.name,
+            price: cat.price,
+            status: SeatStatus.AVAILABLE,
+          });
+        }
       }
     } else if (data.rows && data.cols && data.prices) {
       // Tự động sinh Matrix
@@ -174,7 +204,7 @@ export class AdminService {
       name?: string;
       description?: string;
       saleStartAt?: string | null;
-      mapMode?: 'grid' | 'coordinate';
+      mapMode?: 'grid' | 'coordinate' | 'svg';
       mapConfig?: any;
       rows?: number;
       cols?: number;
@@ -192,12 +222,18 @@ export class AdminService {
     },
   ) {
     const isCoordinate = data.mapMode === 'coordinate';
+    const isSvg = data.mapMode === 'svg';
     let totalSeats: number | undefined;
 
     if (data.mapMode) {
-      totalSeats = isCoordinate
-        ? data.seatsConfig?.length || 0
-        : (data.rows || 0) * (data.cols || 0);
+      if (isCoordinate) {
+        totalSeats = data.seatsConfig?.length || 0;
+      } else if (isSvg) {
+        const limits = data.mapConfig?.ticketLimits || { vvip: 20, vip: 40, gold: 60, silver: 100 };
+        totalSeats = Number(limits.vvip || 0) + Number(limits.vip || 0) + Number(limits.gold || 0) + Number(limits.silver || 0);
+      } else {
+        totalSeats = (data.rows || 0) * (data.cols || 0);
+      }
     }
 
     const updatedEvent = await this.prisma.event.update({
@@ -239,6 +275,29 @@ export class AdminService {
             category: s.category || 'standard',
             price: Number(s.price) || 0,
           });
+        }
+      } else if (isSvg && data.prices) {
+        const limits = data.mapConfig?.ticketLimits || { vvip: 20, vip: 40, gold: 60, silver: 100 };
+        const categories = [
+          { name: 'VVIP', limit: Number(limits.vvip || 0), price: data.prices.vvip },
+          { name: 'VIP', limit: Number(limits.vip || 0), price: data.prices.vip },
+          { name: 'GOLD', limit: Number(limits.gold || 0), price: data.prices.gold },
+          { name: 'SILVER', limit: Number(limits.silver || 0), price: data.prices.silver },
+        ];
+
+        for (const cat of categories) {
+          for (let i = 1; i <= cat.limit; i++) {
+            newSeatsData.push({
+              seatCode: `${cat.name}-${i.toString().padStart(3, '0')}`,
+              row: cat.name[0],
+              col: i,
+              x: null,
+              y: null,
+              color: null,
+              category: cat.name,
+              price: cat.price,
+            });
+          }
         }
       } else if (data.rows && data.cols && data.prices) {
         const rowLabels = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'

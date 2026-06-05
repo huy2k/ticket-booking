@@ -10,4 +10,10 @@ export class EventService {
       orderBy: { saleStartAt: 'asc' },
     });
   }
+
+  async getEventById(id: string) {
+    return this.prisma.event.findUnique({
+      where: { id },
+    });
+  }
 }
